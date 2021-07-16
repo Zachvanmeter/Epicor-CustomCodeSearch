@@ -427,6 +427,8 @@ class SQLSearchTool:
 				Button(LoginBox, text='Use these credentials', command=LoginBox.destroy).place(x=20,y=120)
 		else:
 			self.LastSQLAuth = 0
+			self.UserName.set('')
+			self.UserPass.set('')
 		
 		if   self.NotClause.get() == 0:
 			self.NotChk.config(text=r'& ')
