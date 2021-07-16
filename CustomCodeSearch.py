@@ -3,14 +3,18 @@ from tkinter import *
 
 import pyodbc
 
+	# for me
 # pyinstaller -F --icon="EpicorSearchIcon.ico" "CustomCodeSearch.py"
+
+	# for you
+# pyinstaller -F "CustomCodeSearch.py"
 
 # ######################################### #
 #############################################
 # ######################################### #
 
 		# KNOBS TO TURN / SETTINGS #
-			
+
 REPLACEDICT = \
 {		# because apparently I dont know how to use .decode()
 	'&#x0A;':'\n'
@@ -31,11 +35,19 @@ DEFAULT_DATABASE = 'EpicorERP'
 #############################################
 # ######################################### #
 
-def GenDefaultList(Server,Database):
-	conn = pyodbc.connect('Driver={SQL Server};'
-							  'Server='+Server+';'
-							  'Database='+Database+';'
-							  'Trusted_Connection=yes;')
+def GenDefaultList(Server,Database,UserName,UserPass):
+	if UserName != '':
+		conn = pyodbc.connect('Driver={SQL Server};'
+								'Server='+Server+';'
+								'Database='+Database+';'
+								'UID='+UserName+';'
+								'PWD='+UserPass+';'
+								'Trusted_Connection=no;')
+	else:
+		conn = pyodbc.connect('Driver={SQL Server};'
+								'Server='+Server+';'
+								'Database='+Database+';'
+								'Trusted_Connection=yes;')
 	cursor = conn.cursor()
 	cursor.execute(('SELECT '
 		+'         Menu.MenuID '
@@ -54,11 +66,19 @@ def GenDefaultList(Server,Database):
 				DefaultList.append(Name)
 	return DefaultList
 
-def GenCustomizationDict(Server,Database,q1,q2,NotClause,IgnrComt,Output,ShowCode,CustomDefault):
-	conn = pyodbc.connect('Driver={SQL Server};'
-							  'Server='+Server+';'
-							  'Database='+Database+';'
-							  'Trusted_Connection=yes;')
+def GenCustomizationDict(Server,Database,q1,q2,NotClause,IgnrComt,Output,ShowCode,CustomDefault,UserName,UserPass):
+	if UserName != '':
+		conn = pyodbc.connect('Driver={SQL Server};'
+								'Server='+Server+';'
+								'Database='+Database+';'
+								'UID='+UserName+';'
+								'PWD='+UserPass+';'
+								'Trusted_Connection=no;')
+	else:
+		conn = pyodbc.connect('Driver={SQL Server};'
+								'Server='+Server+';'
+								'Database='+Database+';'
+								'Trusted_Connection=yes;')
 	cursor = conn.cursor()
 	cursor.execute(('SELECT '
 		+'         XXXDef.Key1 '
@@ -69,7 +89,7 @@ def GenCustomizationDict(Server,Database,q1,q2,NotClause,IgnrComt,Output,ShowCod
 		+"WHERE    XXXDef.TypeCode = 'Customization' "
 		
 		).replace('<DatabaseName>',Database))
-	DefaultList = GenDefaultList(Server,Database)
+	DefaultList = GenDefaultList(Server,Database,UserName,UserPass)
 	CustomizationDict = {}
 	CustCount = 0 
 	CustTotal = 0
@@ -81,14 +101,15 @@ def GenCustomizationDict(Server,Database,q1,q2,NotClause,IgnrComt,Output,ShowCod
 			Script = Content.split('<PropertyName>Script</PropertyName>')[1]
 			Script = Script.split('</PropertyValue>')[0]
 			Script = Script.replace("    <PropertyValue>",'')
+			Script = CleanBody(Script)
 			CustomizationDict[Name] = {'Name':Name,'Form':Form,'Script':Script}
 			
 			if Name in DefaultList:
 				IsDefault = True
 				
 			Header = '\n########################\n\n'+Name+' # Customization for '+Form
-			Detail = '\t\t\tDefault\n' if IsDefault else '\t\t\tNot Default\n'
-			Footer = '\n########################\n\n'
+			Detail = '\t\t%s\n'%('Default' if IsDefault else 'Not Default')
+			Footer = '\n\t########################\n\n'
 			
 			if CustomDefault == 0 and IsDefault == False:
 				continue
@@ -109,7 +130,7 @@ def GenCustomizationDict(Server,Database,q1,q2,NotClause,IgnrComt,Output,ShowCod
 			if Output == 1: FileHandler(Name,Script)
 	print('\nSearch Complete for "%s". %s/%s Customizations Displayed\n'%(q1,CustCount,CustTotal))
 
-def GenBPMCode(Server,Database,q1,q2,NotClause,IgnrComt,Output,ShowCode,IndexEnable,IncludeBase):
+def GenBPMCode(Server,Database,q1,q2,NotClause,IgnrComt,Output,ShowCode,IndexEnable,IncludeBase,UserName,UserPass):
 	def IsOkay(IndexEnable,IsEnabled):	
 		if IndexEnable == 0 :
 			if not IsEnabled:
@@ -136,20 +157,23 @@ def GenBPMCode(Server,Database,q1,q2,NotClause,IgnrComt,Output,ShowCode,IndexEna
 				return True
 			else:
 				return False
-	def CleanBody(Body):
-		Body = Body.encode('latin1', errors='ignore').decode('unicode_escape', errors='ignore')
-		for k,v in REPLACEDICT.items():
-			Body = Body.replace(k,v)
-		return Body
 	def GenCustomCode(Body):
 		head,sep,tail = Body.partition('" Code="')
 		Code,sep,tail = tail.partition('" ExecutionRule="')
 		return Code
 		# ###################################### #
-	conn = pyodbc.connect('Driver={SQL Server};'
-						  'Server='+Server+';'
-						  'Database='+Database+';'
-						  'Trusted_Connection=yes;')
+	if UserName != '':
+		conn = pyodbc.connect('Driver={SQL Server};'
+								'Server='+Server+';'
+								'Database='+Database+';'
+								'UID='+UserName+';'
+								'PWD='+UserPass+';'
+								'Trusted_Connection=no;')
+	else:
+		conn = pyodbc.connect('Driver={SQL Server};'
+								'Server='+Server+';'
+								'Database='+Database+';'
+								'Trusted_Connection=yes;')
 	cursor = conn.cursor()
 	cursor.execute(('SELECT '
 		+'         BpDirective.BpMethodCode, '
@@ -178,8 +202,8 @@ def GenBPMCode(Server,Database,q1,q2,NotClause,IgnrComt,Output,ShowCode,IndexEna
 			Code = GenCustomCode(Body)
 			
 			Header = '\n########################\n\n'+DirectiveType+' # '+BpMethodCode+' '+Name
-			Detail = '\t\t\tEnabled\n' if IsEnabled else '\t\t\tDisabled\n'
-			Footer = '\n########################\n\n'
+			Detail = '\t\t%s\n'%('Enabled' if IsEnabled else 'Disabled')
+			Footer = '\n\t########################\n\n'
 			
 			
 			if FindQ(q1,q2,NotClause,Body):
@@ -196,6 +220,12 @@ def GenBPMCode(Server,Database,q1,q2,NotClause,IgnrComt,Output,ShowCode,IndexEna
 			if Output == 1: FileHandler(BpMethodCode,Body)
 	
 	print('\nSearch Complete for "%s". %s/%s BPMs Displayed\n'%(q1,BpmCount,BpmTotal))
+
+def CleanBody(Body):
+		Body = Body.encode('latin1', errors='ignore').decode('unicode_escape', errors='ignore')
+		for k,v in REPLACEDICT.items():
+			Body = Body.replace(k,v)
+		return Body
 
 def FindQ(q1,q2,NotClause,Code):
 		if q2 != '':
@@ -262,6 +292,12 @@ class SQLSearchTool:
 		self.CustomDefault = IntVar()
 		self.UseBPMS = IntVar()
 		self.UseCust = IntVar()
+		self.SQLAuth = IntVar()
+		
+		self.UserName = StringVar()
+		self.UserPass = StringVar()
+		self.UserName.set('')
+		self.UserPass.set('')
 		
 		self.q1 = StringVar()
 		self.q2 = StringVar()
@@ -281,6 +317,7 @@ class SQLSearchTool:
 		self.CustomDefault.set(0)	# 0,1
 		self.UseBPMS.set(1)			# 0,1
 		self.UseCust.set(1)			# 0,1
+		self.SQLAuth.set(0)			# 0,1
 		
 	def BuildFrame(self):
 			# Output Line type
@@ -293,11 +330,11 @@ class SQLSearchTool:
 		Radiobutton(self.ShowCCan, font=self.BF, text='Entire BPM           ', variable=self.ShowCode, value=2).pack()
 		Label(self.ShowCCan, font=self.BF, text='                        ').pack()
 		Label(self.ShowCCan, font=self.BF, text='                        ').pack()
-		Label(self.ShowCCan, font=self.BF, text='                        ').pack()
+		Checkbutton(self.ShowCCan, font=self.BF, text='SQL Auth             ', variable=self.SQLAuth).pack()
 		Checkbutton(self.ShowCCan, font=self.BF, text='Write to File        ', variable=self.Output).pack()
 		Checkbutton(self.ShowCCan, font=self.BF, text='Yield Comments       ', variable=self.IgnrComt).pack()
 		Checkbutton(self.ShowCCan, font=self.BF, text='Search BPMs          ', variable=self.UseBPMS).pack()
-		Checkbutton(self.ShowCCan, font=self.BF, text='Search Customizations',variable=self.UseCust).pack()
+		Checkbutton(self.ShowCCan, font=self.BF, text='Search Customizations', variable=self.UseCust).pack()
 		
 			# Server Settings
 		Label(self.bg, text='Server', anchor=W).place(x=160,y=2)
@@ -358,28 +395,44 @@ class SQLSearchTool:
 		ShowCode = self.ShowCode.get()
 		IndexEnable = self.IndexEnable.get()
 		IncludeBase = self.IncludeBase.get()
+		UserName = self.UserName.get()
+		UserPass = self.UserPass.get()
 		if self.UseBPMS.get() == 1:
+			print('\n\n\n')
 			print('################################################################')
 			print('######################## # #  BPMS  # # ########################')
 			print('################################################################')
 			GenBPMCode(
-				Server,Database,q1,q2,NotClause,IgnrComt,Output,ShowCode,IndexEnable,IncludeBase
+				Server,Database,q1,q2,NotClause,IgnrComt,Output,ShowCode,IndexEnable,IncludeBase,UserName,UserPass
 				)
 		CustomDefault = self.CustomDefault.get()
 		if self.UseCust.get() == 1:
+			print('\n\n\n')
 			print('################################################################')
 			print('######################## Customizations ########################')
 			print('################################################################')
 			GenCustomizationDict(
-				Server,Database,q1,q2,NotClause,IgnrComt,Output,ShowCode,CustomDefault
+				Server,Database,q1,q2,NotClause,IgnrComt,Output,ShowCode,CustomDefault,UserName,UserPass
 				)
 
 	def Update(self):
+		if   self.SQLAuth.get() == 1:
+			if self.LastSQLAuth == 0:
+				self.LastSQLAuth = 1
+				LoginBox = Toplevel(self.master)
+				Label(LoginBox, font=self.BF,  width=20, text='UserName').place(x=20,y=1)
+				Label(LoginBox, font=self.BF,  width=20, text='Password').place(x=20,y=51)
+				Entry(LoginBox, font=self.BF,  width=20, textvariable=self.UserName).place(x=20,y=20)
+				Entry(LoginBox, font=self.BF,  width=20, textvariable=self.UserPass).place(x=20,y=70)
+				Button(LoginBox, text='Use these credentials', command=LoginBox.destroy).place(x=20,y=120)
+		else:
+			self.LastSQLAuth = 0
+		
 		if   self.NotClause.get() == 0:
 			self.NotChk.config(text=r'& ')
 		elif self.NotClause.get() == 1:
 			self.NotChk.config(text=r'&!')
-		self.master.after(500,self.Update)
+		self.master.after(250,self.Update)
 		
 def RunUI():
 	root = Tk()
